@@ -1,7 +1,9 @@
 from typing import Union
-from fastapi import FastAPI
+from fastapi import FastAPI, Query
 from pydantic import BaseModel
 from enum import Enum
+from typing import Annotated
+from pydantic import AfterValidator
 
 
 class ModelName(str, Enum):
@@ -10,7 +12,19 @@ class ModelName(str, Enum):
     lenet = "lenet"
 
 
+data = {
+    "isbn-9781529046137": "The Hitchhiker's Guide to the Galaxy",
+    "imdb-tt0371724": "The Hitchhiker's Guide to the Galaxy",
+    "isbn-9781439512982": "Isaac Asimov: The Complete Stories, Vol. 2",
+}
+
 app = FastAPI()
+
+
+def check_valid_id(id: str):
+    if not id.startswith(("isbn-", "imdb-")):
+        raise ValueError('Invalid ID format, it must start with "isbn-" or "imdb-"')
+
 
 fake_items_db = [{"item_name": "Foo"}, {"item_name": "Bar"}, {"item_name": "Baz"}]
 
@@ -18,7 +32,8 @@ fake_items_db = [{"item_name": "Foo"}, {"item_name": "Bar"}, {"item_name": "Baz"
 class Item(BaseModel):
     name: str
     price: float
-    is_offer: Union[bool, None] = None
+    tax: float | None = None
+    description: str | None = None
 
 
 @app.get("/")
@@ -26,9 +41,35 @@ async def root():
     return {"Hello": "World"}
 
 
-@app.get("/items/")
-async def read_item(skip: int = 0, limit: int = 10):
-    return fake_items_db[skip : skip + limit]
+
+
+
+@app.get("/items5/")
+async def read_items(
+    q: Annotated[
+        list[str] | None,
+        Query(min_length=3, title="Query string", alias="item-query", deprecated=True),
+    ] = None,
+):
+    query_items = {"q": q}
+    return query_items
+
+
+@app.post("/items/")
+async def create_item(item: Item):
+    item_dict = item.dict()
+    if item.tax is not None:
+        price_with_tax = item.price + item.tax
+        item_dict.update({"price_with_tax": price_with_tax})
+    return item_dict
+
+
+@app.put("/items/{item_id}")
+async def update_item(item_id: int, item: Item, q: str | None = None):
+    result = {"item_id": item_id, **item.dict()}
+    if q:
+        result.update({"q": q})
+    return result
 
 
 @app.put("/items/{item_id}")
