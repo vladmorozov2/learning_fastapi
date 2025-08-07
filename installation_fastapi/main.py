@@ -4,6 +4,9 @@ from pydantic import BaseModel
 from enum import Enum
 from typing import Annotated
 from pydantic import AfterValidator
+from path_params_numeric_validators import router
+from response_model import router as response_model_router
+from dependies import router as dependies_router
 
 
 class ModelName(str, Enum):
@@ -19,6 +22,10 @@ data = {
 }
 
 app = FastAPI()
+
+app.include_router(router)
+app.include_router(response_model_router)
+app.include_router(dependies_router)
 
 
 def check_valid_id(id: str):
@@ -39,9 +46,6 @@ class Item(BaseModel):
 @app.get("/")
 async def root():
     return {"Hello": "World"}
-
-
-
 
 
 @app.get("/items5/")
